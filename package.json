@@ -1,13 +1,13 @@
 {
-  "name": "discord-bot-awesome",
+  "name": "discord-bot",
   "version": "1.0.0",
-  "description": "A powerful Discord bot that cleans old messages!",
+  "description": "A Discord bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.6.1", 
-    "dotenv": "^16.3.1" 
+    "discord.js": "^14.0.0",
+    "dotenv": "^16.0.0"
   }
 }
