@@ -1,12 +1,13 @@
 {
-  "name": "your-project-name",
+  "name": "discord-bot-awesome",
   "version": "1.0.0",
-  "description": "Your project description",
+  "description": "A powerful Discord bot that cleans old messages!",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    // Your project's dependencies
+    "discord.js": "^14.6.1", // Replace with the appropriate version
+    "dotenv": "^16.3.1" // Optional, for loading environment variables
   }
 }
