@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.6.1", // Replace with the appropriate version
-    "dotenv": "^16.3.1" // Optional, for loading environment variables
+    "discord.js": "^14.6.1", 
+    "dotenv": "^16.3.1" 
   }
 }
