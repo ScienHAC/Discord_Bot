@@ -19,15 +19,8 @@ let isActiveDeletion = true;
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
-    // Start in active deletion mode
+    // Start the initial check for old messages
     checkOldMessages();
-
-    // Schedule the check every 1 minute initially
-    setInterval(() => {
-        if (isActiveDeletion) {
-            checkOldMessages();
-        }
-    }, 60 * 1000); // 1 minute interval
 });
 
 // Function to check and delete old messages
