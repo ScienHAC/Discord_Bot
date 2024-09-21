@@ -41,21 +41,21 @@ const checkOldMessages = async () => {
         if (channel) {
             const deletedCount = await deleteOldMessages(channel);
             totalDeleted += deletedCount;
+
+            // If we deleted messages, send a notification
+            if (deletedCount > 0) {
+                console.log(`Total messages deleted: ${deletedCount}`);
+                await channel.send(`🧹 I have deleted ${deletedCount} messages older than 3 months.`);
+            } else {
+                console.log('No more old messages found. Sending notification.');
+                await channel.send("🔍 No messages older than 3 months were found.");
+            }
         } else {
             console.error(`Channel not found: ${channelId}`);
         }
     }
 
-    // If we deleted messages, send a notification
-    if (totalDeleted > 0) {
-        console.log(`Total messages deleted: ${totalDeleted}`);
-        channel.send(`🧹 I have deleted ${totalDeleted} messages older than 3 months.`);
-    } else {
-        console.log('No more old messages found. Sending notification.');
-        channel.send("🔍 No messages older than 3 months were found.");
-    }
-
-    // If no messages were deleted, switch to daily scan mode
+    // If no messages were deleted in any channel, switch to daily scan mode
     if (totalDeleted === 0) {
         isActiveDeletion = false;
 
