@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+/*const { Client, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
 
 const client = new Client({
@@ -63,7 +63,20 @@ async function deleteOldMessages(channel) {
 
 // Error handling
 client.on('error', console.error);
+*/
 
+
+
+require('dotenv').config(); // This line ensures local .env use, but not needed on Railway
+const { Client, GatewayIntentBits } = require('discord.js');
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+client.once('ready', () => {
+    console.log('Bot is online!');
+});
+
+client.login(process.env.DISCORD_TOKEN);
 
 // console.log(process.env.DISCORD_TOKEN);
 
