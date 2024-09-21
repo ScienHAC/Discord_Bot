@@ -46,13 +46,17 @@ const checkOldMessages = async () => {
         }
     }
 
-    // If we deleted messages, remain in active deletion mode; otherwise, switch to daily scan
+    // If we deleted messages, send a notification
     if (totalDeleted > 0) {
         console.log(`Total messages deleted: ${totalDeleted}`);
         channel.send(`🧹 I have deleted ${totalDeleted} messages older than 3 months.`);
     } else {
-        console.log('No more old messages found. Switching to daily scan mode.');
-        
+        console.log('No more old messages found. Sending notification.');
+        channel.send("🔍 No messages older than 3 months were found.");
+    }
+
+    // If no messages were deleted, switch to daily scan mode
+    if (totalDeleted === 0) {
         isActiveDeletion = false;
 
         // Switch to daily scan mode
