@@ -49,6 +49,7 @@ const checkOldMessages = async () => {
     // If we deleted messages, remain in active deletion mode; otherwise, switch to daily scan
     if (totalDeleted > 0) {
         console.log(`Total messages deleted: ${totalDeleted}`);
+        channel.send(`🧹 I have deleted ${totalDeleted} messages older than 3 months.`);
     } else {
         console.log('No more old messages found. Switching to daily scan mode.');
         isActiveDeletion = false;
@@ -58,10 +59,10 @@ const checkOldMessages = async () => {
     }
 };
 
-// Function to delete messages older than 2 minutes
+// Function to delete messages older than 3 months
 const deleteOldMessages = async (channel) => {
     const now = Date.now();
-    const twoMinutesInMs = 2 * 60 * 1000; // 2 minutes in milliseconds
+    const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months in milliseconds
     let deletedMessageCount = 0;
 
     // Fetch 100 messages at a time
@@ -70,10 +71,10 @@ const deleteOldMessages = async (channel) => {
     // If no more messages are found, return
     if (messages.size === 0) return 0;
 
-    // Filter and delete messages older than 2 minutes
+    // Filter and delete messages older than 3 months
     const deletePromises = messages.map(async (message) => {
         const messageAge = now - message.createdTimestamp;
-        if (messageAge > twoMinutesInMs) {
+        if (messageAge > threeMonthsInMs) {
             await message.delete(); // Await the delete operation
             deletedMessageCount++;
         }
