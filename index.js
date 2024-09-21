@@ -12,45 +12,68 @@ const client = new Client({
 // Login to Discord using your bot token
 client.login(process.env.DISCORD_TOKEN);
 
+// State to track if we're in active deletion mode
+let isActiveDeletion = true;
+
 // Ready event
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
-    // Run the check immediately
+    // Start in active deletion mode
     checkOldMessages();
 
-    // Schedule the check every 1 minute (for testing purposes, 1 min = 60,000 milliseconds)
-    setInterval(checkOldMessages, 60 * 1000); // 1 minute interval for testing
+    // Schedule the check every 1 minute initially
+    setInterval(() => {
+        if (isActiveDeletion) {
+            checkOldMessages();
+        }
+    }, 60 * 1000); // 1 minute interval
 });
 
 // Function to check and delete old messages
 const checkOldMessages = async () => {
     const channelIds = ['1286709388077436950', '1286916622270861426']; // Replace with your channel IDs
 
-    // Fetch messages in each channel and delete old ones
-    const channelChecks = channelIds.map(async (channelId) => {
+    let totalDeleted = 0; // Count total messages deleted
+
+    for (const channelId of channelIds) {
         const channel = await client.channels.fetch(channelId);
         if (channel) {
-            await deleteOldMessages(channel);
+            const deletedCount = await deleteOldMessages(channel);
+            totalDeleted += deletedCount;
         } else {
             console.error(`Channel not found: ${channelId}`);
         }
-    });
+    }
 
-    // Await all channel checks to complete
-    await Promise.all(channelChecks);
+    // If we deleted messages, remain in active deletion mode; otherwise, switch to daily scan
+    if (totalDeleted > 0) {
+        console.log(`Total messages deleted: ${totalDeleted}`);
+    } else {
+        console.log('No more old messages found. Switching to daily scan mode.');
+        isActiveDeletion = false;
+
+        // Switch to daily scan mode
+        setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
+    }
 };
 
-// Function to delete messages older than 1 minute (for testing)
+// Function to delete messages older than 6 months
 const deleteOldMessages = async (channel) => {
-    const messages = await channel.messages.fetch({ limit: 100 });
     const now = Date.now();
-    const oneMinuteInMs = 1 * 60 * 1000; // 1 minute in milliseconds
+    const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000; // Approx. 6 months in milliseconds
     let deletedMessageCount = 0;
 
+    // Fetch 100 messages at a time
+    const messages = await channel.messages.fetch({ limit: 100 });
+
+    // If no more messages are found, return
+    if (messages.size === 0) return 0;
+
+    // Filter and delete messages older than 6 months
     const deletePromises = messages.map(message => {
         const messageAge = now - message.createdTimestamp;
-        if (messageAge > oneMinuteInMs) {
+        if (messageAge > sixMonthsInMs) {
             return message.delete()
                 .then(() => deletedMessageCount++)
                 .catch(console.error);
@@ -60,12 +83,9 @@ const deleteOldMessages = async (channel) => {
     // Wait for all delete promises to finish
     await Promise.all(deletePromises);
 
-    // Notify the channel based on whether old messages were deleted
-    if (deletedMessageCount > 0) {
-        channel.send(`🧹 I have deleted ${deletedMessageCount} messages older than 1 minute.`);
-    } else {
-        channel.send("🔍 No messages older than 1 minute were found to delete.");
-    }
+    console.log(`Deleted ${deletedMessageCount} messages in channel: ${channel.id}.`);
+
+    return deletedMessageCount; // Return the count of deleted messages
 };
 
 // Error handling
