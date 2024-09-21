@@ -58,7 +58,6 @@ const checkOldMessages = async () => {
     }
 };
 
-// Function to delete messages older than 6 months
 // Function to delete messages older than 2 minutes
 const deleteOldMessages = async (channel) => {
     const now = Date.now();
@@ -72,23 +71,13 @@ const deleteOldMessages = async (channel) => {
     if (messages.size === 0) return 0;
 
     // Filter and delete messages older than 2 minutes
-    const deletePromises = messages.map(message => {
+    const deletePromises = messages.map(async (message) => {
         const messageAge = now - message.createdTimestamp;
         if (messageAge > twoMinutesInMs) {
-            return message.delete()
-                .then(() => deletedMessageCount++)
-                .catch(console.error);
+            await message.delete(); // Await the delete operation
+            deletedMessageCount++;
         }
     });
-
-    // Wait for all delete promises to finish
-    await Promise.all(deletePromises);
-
-    console.log(`Deleted ${deletedMessageCount} messages in channel: ${channel.id}.`);
-
-    return deletedMessageCount; // Return the count of deleted messages
-};
-
 
     // Wait for all delete promises to finish
     await Promise.all(deletePromises);
