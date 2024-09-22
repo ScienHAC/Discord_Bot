@@ -299,8 +299,6 @@ client.on('error', console.error);
 
 
 
-
-
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { Client, GatewayIntentBits } = require('discord.js');
@@ -352,7 +350,6 @@ const commands = [
         description: 'Show the current settings for all added channels',
     },
 ];
-
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -438,7 +435,7 @@ const fetchChannelName = async (channelId) => {
     return channel ? channel.name : 'Unknown Channel';
 };
 
-// Slash command: /add-gravbits to add a channel for deletion
+// Slash command: Handle interactions
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
@@ -448,18 +445,18 @@ client.on('interactionCreate', async (interaction) => {
 
     if (commandName === 'add-gravbits') {
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Channel ${channelId} has been added for message deletion.`);
+        await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been added for message deletion.`);
     } else if (commandName === 'remove-gravbits') {
         removeChannel(guildId, channelId);
-        await interaction.reply(`Channel ${channelId} has been removed from the deletion list.`);
+        await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been removed from the deletion list.`);
     } else if (commandName === 'check-gravbits') {
         checkInterval = interaction.options.getInteger('interval') || 24; // Use provided interval or default
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Check interval for channel ${channelId} has been set to ${checkInterval} hours.`);
+        await interaction.reply(`Check interval for channel ${await fetchChannelName(channelId)} has been set to ${checkInterval} hours.`);
     } else if (commandName === 'deltime-gravbits') {
         deleteTime = interaction.options.getInteger('delete_age') || 2160; // Use provided delete time or default
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Messages older than ${deleteTime} hours will be deleted in channel ${channelId}.`);
+        await interaction.reply(`Messages older than ${deleteTime} hours will be deleted in channel ${await fetchChannelName(channelId)}.`);
     } else if (commandName === 'delete-gravbits') {
         const messages = await interaction.channel.messages.fetch({ limit: 10 });
         const deletePromises = messages.map(msg => msg.delete());
@@ -524,3 +521,4 @@ setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
 
 // Error handling
 client.on('error', console.error);
+
