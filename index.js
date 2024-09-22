@@ -50,11 +50,12 @@ const commands = [
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
-(async () => {
+// Function to register commands for a specific guild
+const registerCommandsForGuild = async (guildId) => {
     try {
-        console.log('Started refreshing application (/) commands.');
-
-        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { // If needed, replace with your server's ID or keep it dynamic
+        console.log(`Started refreshing application (/) commands for guild: ${guildId}`);
+        
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
             body: commands,
         });
 
@@ -62,7 +63,7 @@ const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
     } catch (error) {
         console.error(error);
     }
-})();
+};
 
 // Initialize Discord bot
 const client = new Client({
@@ -83,8 +84,14 @@ db.run(`CREATE TABLE IF NOT EXISTS channels (guildId TEXT, channelId TEXT, check
 client.login(process.env.DISCORD_TOKEN);
 
 // Ready event
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+    
+    // Register commands for each guild the bot is in
+    const guilds = await client.guilds.fetch();
+    guilds.forEach(guild => {
+        registerCommandsForGuild(guild.id);
+    });
 });
 
 // Helper function to add/update channel settings
@@ -135,7 +142,7 @@ const fetchChannelName = async (channelId) => {
 // Slash command: Handle interactions
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
-    
+
     const guildId = interaction.guildId; // Automatically detects the guild ID
     const { commandName, channelId } = interaction; // Removed duplicate guildId declaration
     let checkInterval = 24; // Default check interval in hours (1 day)
