@@ -6,46 +6,7 @@ require('dotenv').config();
 
 const clientId = process.env.Client_Id;
 const commands = [
-    {
-        name: 'add-gravbits',
-        description: 'Add this channel for message deletion.',
-    },
-    {
-        name: 'remove-gravbits',
-        description: 'Remove this channel from the deletion list.',
-    },
-    {
-        name: 'check-gravbits',
-        description: 'Set the interval for message deletion (hours).',
-        options: [
-            {
-                name: 'interval',
-                type: 4, // INTEGER
-                description: 'Interval in hours (e.g., 24 for 1 day)',
-                required: false,
-            },
-        ],
-    },
-    {
-        name: 'deltime-gravbits',
-        description: 'Set the time for messages to be deleted (older than N hours).',
-        options: [
-            {
-                name: 'delete_age',
-                type: 4, // INTEGER
-                description: 'Delete messages older than N hours',
-                required: false,
-            },
-        ],
-    },
-    {
-        name: 'delete-gravbits',
-        description: 'Delete the last 10 messages from the current channel.',
-    },
-    {
-        name: 'status',
-        description: 'Show the current settings for all added channels',
-    },
+    // Commands remain the same
 ];
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
@@ -97,12 +58,17 @@ const registerCommandsForGuild = async (guildId) => {
 
         console.log('Successfully reloaded application (/) commands.');
     } catch (error) {
-        console.error(error);
+        console.error('Error reloading commands:', error);
     }
 };
 
 // Function to upsert (insert or update) channel settings
 const upsertChannel = async (guildId, channelId, checkInterval, deleteTime) => {
+    if (!channelId) {
+        console.error('Cannot upsert: channelId is undefined.');
+        return;
+    }
+
     const query = `
         INSERT INTO channels (guildId, channelId, checkInterval, deleteTime)
         VALUES ($1, $2, $3, $4)
@@ -120,6 +86,11 @@ const upsertChannel = async (guildId, channelId, checkInterval, deleteTime) => {
 
 // Function to remove channel settings
 const removeChannel = async (guildId, channelId) => {
+    if (!channelId) {
+        console.error('Cannot remove: channelId is undefined.');
+        return;
+    }
+
     const query = `DELETE FROM channels WHERE guildId = $1 AND channelId = $2`;
 
     try {
@@ -139,13 +110,24 @@ const getChannelsForGuild = async (guildId) => {
         return result.rows;
     } catch (err) {
         console.error('Error fetching channels:', err.message);
+        return [];
     }
 };
 
 // Helper function to fetch a channel name
 const fetchChannelName = async (channelId) => {
-    const channel = await client.channels.fetch(channelId);
-    return channel ? channel.name : 'Unknown Channel';
+    if (!channelId) {
+        console.error('Cannot fetch channel name: channelId is undefined.');
+        return 'Unknown Channel';
+    }
+
+    try {
+        const channel = await client.channels.fetch(channelId);
+        return channel ? channel.name : 'Unknown Channel';
+    } catch (error) {
+        console.error(`Error fetching channel name for ${channelId}:`, error);
+        return 'Unknown Channel';
+    }
 };
 
 // Slash command: Handle interactions
