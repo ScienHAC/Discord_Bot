@@ -46,6 +46,7 @@ const registerCommandsForGuild = async (guildId) => {
 };
 
 // Listen for when the bot joins a new guild
+
 client.on('guildCreate', async (guild) => {
     console.log(`Joined a new guild: ${guild.name} (ID: ${guild.id})`);
     db.run(`INSERT OR IGNORE INTO channels (guildId) VALUES (?)`, [guild.id], function(err) {
@@ -53,10 +54,13 @@ client.on('guildCreate', async (guild) => {
             console.error('Error adding new guild:', err.message);
         } else {
             console.log(`Added new guild to database: ${guild.id}`);
-            await registerCommandsForGuild(guild.id); // Register commands for the new guild
         }
     });
+
+    // Register commands for the new guild
+    await registerCommandsForGuild(guild.id);
 });
+
 
 // Login to Discord using your bot token
 client.login(process.env.DISCORD_TOKEN);
