@@ -306,8 +306,8 @@ const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
 
 const clientId = process.env.Client_Id; // Replace with your bot's client ID
-const guildId = process.env.Guild_Id; // Replace with your server's (guild's) ID
-
+//const guildId = process.env.Guild_Id; // Replace with your server's (guild's) ID
+const guildId = '773810493717479434';
 const commands = [
     {
         name: 'add-gravbits',
