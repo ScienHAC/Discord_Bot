@@ -1,81 +1,34 @@
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { Client, GatewayIntentBits } = require('discord.js');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
 
 const clientId = process.env.Client_Id;
 const commands = [
-    {
-        name: 'add-gravbits',
-        description: 'Add this channel for message deletion.',
-    },
-    {
-        name: 'remove-gravbits',
-        description: 'Remove this channel from the deletion list.',
-    },
-    {
-        name: 'check-gravbits',
-        description: 'Set the interval for message deletion (hours).',
-        options: [
-            {
-                name: 'interval',
-                type: 4, // INTEGER
-                description: 'Interval in hours (e.g., 24 for 1 day)',
-                required: false,
-            },
-        ],
-    },
-    {
-        name: 'deltime-gravbits',
-        description: 'Set the time for messages to be deleted (older than N hours).',
-        options: [
-            {
-                name: 'delete_age',
-                type: 4, // INTEGER
-                description: 'Delete messages older than N hours',
-                required: false,
-            },
-        ],
-    },
-    {
-        name: 'delete-gravbits',
-        description: 'Delete the last 10 messages from the current channel.',
-    },
-    {
-        name: 'status',
-        description: 'Show the current settings for all added channels',
-    },
+    // Commands remain the same
 ];
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
-// PostgreSQL setup
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+// Initialize SQLite Database
+const db = new sqlite3.Database('./channels.db');
 
 // Function to create the `channels` table if it doesn't exist
-const createTable = async () => {
-    const query = `
-        CREATE TABLE IF NOT EXISTS channels (
-            guildId TEXT,
-            channelId TEXT,
-            checkInterval INTEGER,
-            deleteTime INTEGER,
-            PRIMARY KEY (guildId, channelId)
-        );
-    `;
-
-    try {
-        await pool.query(query);
-        console.log('Table created or already exists.');
-    } catch (err) {
-        console.error('Error creating table:', err);
-    }
+const createTable = () => {
+    db.run(`CREATE TABLE IF NOT EXISTS channels (
+        guildId TEXT,
+        channelId TEXT,
+        checkInterval INTEGER,
+        deleteTime INTEGER,
+        PRIMARY KEY (guildId, channelId)
+    );`, (err) => {
+        if (err) {
+            console.error('Error creating table:', err);
+        } else {
+            console.log('Table created or already exists.');
+        }
+    });
 };
 
 // Initialize Discord bot
@@ -88,47 +41,38 @@ const client = new Client({
 });
 
 // Function to upsert (insert or update) channel settings
-const upsertChannel = async (guildId, channelId, checkInterval, deleteTime) => {
-    if (!channelId) {
-        console.error('Cannot upsert: channelId is undefined.');
-        return;
-    }
-
+const upsertChannel = (guildId, channelId, checkInterval, deleteTime) => {
     const query = `
         INSERT INTO channels (guildId, channelId, checkInterval, deleteTime)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (guildId, channelId) 
-        DO UPDATE SET checkInterval = EXCLUDED.checkInterval, deleteTime = EXCLUDED.deleteTime;
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(guildId, channelId) 
+        DO UPDATE SET checkInterval = excluded.checkInterval, deleteTime = excluded.deleteTime;
     `;
 
-    try {
-        await pool.query(query, [guildId, channelId, checkInterval, deleteTime]);
-        console.log(`Channel ${channelId} added/updated for guild ${guildId}.`);
-    } catch (err) {
-        console.error('Error upserting channel:', err.message);
-    }
+    db.run(query, [guildId, channelId, checkInterval, deleteTime], function (err) {
+        if (err) {
+            console.error('Error upserting channel:', err.message);
+        } else {
+            console.log(`Channel ${channelId} added/updated for guild ${guildId}.`);
+        }
+    });
 };
 
 // Function to fetch all channels and their settings for a guild
-const getChannelsForGuild = async (guildId) => {
-    const query = `SELECT channelId, checkInterval, deleteTime FROM channels WHERE guildId = $1`;
-
-    try {
-        const result = await pool.query(query, [guildId]);
-        return result.rows;
-    } catch (err) {
-        console.error('Error fetching channels:', err.message);
-        return [];
-    }
+const getChannelsForGuild = (guildId) => {
+    return new Promise((resolve, reject) => {
+        db.all(`SELECT channelId, checkInterval, deleteTime FROM channels WHERE guildId = ?`, [guildId], (err, rows) => {
+            if (err) {
+                reject('Error fetching channels:', err.message);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
 };
 
 // Helper function to fetch a channel name
 const fetchChannelName = async (channelId) => {
-    if (!channelId) {
-        console.error('Cannot fetch channel name: channelId is undefined.');
-        return 'Unknown Channel';
-    }
-
     try {
         const channel = await client.channels.fetch(channelId);
         return channel ? channel.name : 'Unknown Channel';
@@ -137,24 +81,6 @@ const fetchChannelName = async (channelId) => {
         return 'Unknown Channel';
     }
 };
-
-// Register commands for the guild
-const registerCommandsForGuild = async (guildId) => {
-    try {
-        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-            body: commands,
-        });
-        console.log(`Successfully registered commands for guild: ${guildId}`);
-    } catch (error) {
-        console.error(error);
-    }
-};
-
-// Listen for when the bot joins a new guild
-client.on('guildCreate', (guild) => {
-    console.log(`Joined a new guild: ${guild.name} (ID: ${guild.id})`);
-    registerCommandsForGuild(guild.id);
-});
 
 // Slash command: Handle interactions
 client.on('interactionCreate', async (interaction) => {
@@ -168,17 +94,6 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'add-gravbits') {
         await upsertChannel(guildId, channelId, checkInterval, deleteTime);
         await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been added for message deletion.`);
-    } else if (commandName === 'remove-gravbits') {
-        await removeChannel(guildId, channelId);
-        await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been removed from the deletion list.`);
-    } else if (commandName === 'check-gravbits') {
-        checkInterval = interaction.options.getInteger('interval') || 24; // Use provided interval or default
-        await upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Check interval for channel ${await fetchChannelName(channelId)} has been set to ${checkInterval} hours.`);
-    } else if (commandName === 'deltime-gravbits') {
-        deleteTime = interaction.options.getInteger('delete_age') || 2160; // Use provided delete time or default
-        await upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Messages older than ${deleteTime} hours will be deleted in channel ${await fetchChannelName(channelId)}.`);
     } else if (commandName === 'status') {
         const channels = await getChannelsForGuild(guildId);
         if (channels.length === 0) {
@@ -193,12 +108,6 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         await interaction.reply(statusMessage);
-    } else if (commandName === 'delete-gravbits') {
-        const messages = await interaction.channel.messages.fetch({ limit: 10 });
-        const deletePromises = messages.map(msg => msg.delete());
-
-        await Promise.all(deletePromises);
-        await interaction.reply(`Deleted the last 10 messages in this channel.`);
     }
 });
 
@@ -206,13 +115,13 @@ client.on('interactionCreate', async (interaction) => {
 const checkOldMessages = async () => {
     const now = Date.now();
 
-    pool.query(`SELECT DISTINCT guildId, channelId, checkInterval, deleteTime FROM channels`, async (err, result) => {
+    db.all(`SELECT DISTINCT guildId, channelId, checkInterval, deleteTime FROM channels`, async (err, rows) => {
         if (err) {
             console.error('Error fetching channel data:', err.message);
             return;
         }
 
-        for (const row of result.rows) {
+        for (const row of rows) {
             const deleteTimeInMs = row.deleteTime * 60 * 60 * 1000; // Convert hours to milliseconds
             const channel = await client.channels.fetch(row.channelId).catch(console.error);
             if (!channel) {
@@ -248,8 +157,14 @@ const checkOldMessages = async () => {
 setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
 
 // Create the table at the start if it doesn't exist
-createTable().then(() => {
-    // Login to Discord bot
-    client.login(process.env.DISCORD_TOKEN);
-});
+createTable();
 
+// Login to Discord bot
+client.login(process.env.DISCORD_TOKEN);
+
+// Listen for when the bot joins a new guild
+client.on('guildCreate', (guild) => {
+    console.log(`Joined a new guild: ${guild.name} (ID: ${guild.id})`);
+    createTable(); // Ensure the table exists when joining a new guild
+    // Register commands for the new guild if needed
+});
