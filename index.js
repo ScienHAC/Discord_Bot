@@ -88,7 +88,7 @@ const deleteOldMessages = async (channel) => {
 
 // Error handling
 client.on('error', console.error);
-*/
+
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 
@@ -242,6 +242,132 @@ const checkOldMessages = async () => {
 
 // Schedule the check to run once per day
 setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
+
+// Error handling
+client.on('error', console.error);
+*/
+
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
+
+// Initialize Discord bot
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
+
+// Initialize SQLite Database
+const db = new sqlite3.Database('./channels.db');
+
+// Create table to store channels if it doesn't exist
+db.run(`CREATE TABLE IF NOT EXISTS channels (guildId TEXT, channelId TEXT, delInterval INTEGER DEFAULT 24, delAge INTEGER DEFAULT 2160)`);
+
+// Login to Discord using your bot token
+client.login(process.env.DISCORD_TOKEN);
+
+// Ready event
+client.once('ready', () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+});
+
+// Add a channel for deletion
+const addChannel = (guildId, channelId, delInterval = 24, delAge = 2160) => {
+    db.run(`INSERT INTO channels (guildId, channelId, delInterval, delAge) VALUES (?, ?, ?, ?)`, [guildId, channelId, delInterval, delAge], function(err) {
+        if (err) {
+            return console.error('Error adding channel:', err.message);
+        }
+        console.log(`Channel ${channelId} added for guild ${guildId} with interval ${delInterval} hours and delAge ${delAge} hours.`);
+    });
+};
+
+// Fetch all channels for a specific guild
+const getChannelsForGuild = (guildId) => {
+    return new Promise((resolve, reject) => {
+        db.all(`SELECT channelId, delInterval, delAge FROM channels WHERE guildId = ?`, [guildId], (err, rows) => {
+            if (err) {
+                reject('Error fetching channels:', err.message);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+};
+
+// Slash command: Add gravbits to add a channel for deletion
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isCommand()) return;
+
+    const { commandName, guildId, channelId, user } = interaction;
+    const memberRoles = interaction.member.roles.cache;
+
+    if (!memberRoles.some(role => role.name === 'bot_cmd')) {
+        return await interaction.reply('You do not have permission to use this command.');
+    }
+
+    if (commandName === 'add-gravbits') {
+        addChannel(guildId, channelId);
+        await interaction.reply(`Channel ${channelId} has been added for message deletion.`);
+    } else if (commandName === 'check-gravbits') {
+        const hours = interaction.options.getInteger('hours') || 24;
+        addChannel(guildId, channelId, hours);
+        await interaction.reply(`Check interval set to ${hours} hours for this channel.`);
+    } else if (commandName === 'deltime-gravbits') {
+        const delAge = interaction.options.getInteger('hours') || 2160;
+        addChannel(guildId, channelId, 24, delAge);
+        await interaction.reply(`Deletion threshold set to ${delAge} hours for this channel.`);
+    } else if (commandName === 'status') {
+        const channels = await getChannelsForGuild(guildId);
+        const status = channels.map(row => `Channel: <#${row.channelId}>, Check Interval: ${row.delInterval}h, Delete messages older than: ${row.delAge}h`).join('\n');
+        await interaction.reply(`**Current Settings:**\n${status}`);
+    }
+});
+
+// Function to check and delete old messages in all stored channels
+const checkOldMessages = async () => {
+    const now = Date.now();
+
+    db.each(`SELECT DISTINCT guildId, channelId, delAge FROM channels`, async (err, row) => {
+        if (err) {
+            return console.error('Error fetching channel data:', err.message);
+        }
+
+        const channel = await client.channels.fetch(row.channelId).catch(console.error);
+        if (!channel) {
+            console.error(`Channel not found: ${row.channelId}`);
+            return;
+        }
+
+        let deletedMessageCount = 0;
+        const delAgeInMs = row.delAge * 60 * 60 * 1000;
+        const messages = await channel.messages.fetch({ limit: 100 }).catch(console.error);
+
+        if (messages.size === 0) {
+            await channel.send(`🔍 No messages older than ${row.delAge} hours were found.`);
+            return;
+        }
+
+        const deletePromises = messages.map(async (message) => {
+            const messageAge = now - message.createdTimestamp;
+            if (messageAge > delAgeInMs) {
+                await message.delete();
+                deletedMessageCount++;
+            }
+        });
+
+        await Promise.all(deletePromises);
+
+        if (deletedMessageCount > 0) {
+            await channel.send(`🧹 I have deleted ${deletedMessageCount} messages older than ${row.delAge} hours.`);
+        }
+    });
+};
+
+// Schedule the check to run based on channel-specific intervals
+setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // Default 1 day interval
 
 // Error handling
 client.on('error', console.error);
