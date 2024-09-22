@@ -248,4 +248,8 @@ const checkOldMessages = async () => {
 setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
 
 // Create the table at the start if it doesn't exist
-createTable().then(()
+createTable().then(() => {
+    // Login to Discord bot
+    client.login(process.env.DISCORD_TOKEN);
+});
+
