@@ -307,7 +307,6 @@ require('dotenv').config();
 
 const clientId = process.env.Client_Id; // Replace with your bot's client ID
 //const guildId = process.env.Guild_Id; // Replace with your server's (guild's) ID
-const guildId = '773810493717479434';
 const commands = [
     {
         name: 'add-gravbits',
@@ -438,7 +437,7 @@ const fetchChannelName = async (channelId) => {
 // Slash command: Handle interactions
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
-
+    const guildId = interaction.guildId; // Automatically detects the guild ID
     const { commandName, guildId, channelId } = interaction;
     let checkInterval = 24; // Default check interval in hours (1 day)
     let deleteTime = 2160; // Default delete time in hours (3 months)
