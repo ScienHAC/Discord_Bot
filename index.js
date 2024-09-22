@@ -255,7 +255,7 @@ client.on('error', console.error);
 */
 
 
-const { REST } = require('@discordjs/rest');
+/*const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { Client, GatewayIntentBits } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
@@ -502,5 +502,19 @@ const checkOldMessages = async () => {
 };
 
 // Schedule the check to run once per day
-setInterval
+setInterval*/
 
+const { Client } = require('pg');
+
+const client = new Client({
+    connectionString: 'postgres://postgres:nIPhdEWkRgbiRHJcKOfjsgptruQUOmBM@postgres.railway.internal:5432/railway',
+});
+
+client.connect()
+    .then(() => {
+        console.log('Connected to PostgreSQL database!');
+        return client.end();
+    })
+    .catch(err => {
+        console.error('Connection error', err.stack);
+    });
