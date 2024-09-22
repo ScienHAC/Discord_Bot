@@ -507,14 +507,13 @@ setInterval*/
 const { Client } = require('pg');
 
 const client = new Client({
-    connectionString: 'postgres://postgres:nIPhdEWkRgbiRHJcKOfjsgptruQUOmBM@postgres.railway.internal:5432/railway',
+    connectionString: process.env.DATABASE_URL,
 });
 
 client.connect()
     .then(() => {
-        console.log('Connected to PostgreSQL database!');
-        return client.end();
+        console.log('Connected to PostgreSQL successfully!');
     })
     .catch(err => {
-        console.error('Connection error', err.stack);
+        console.error('Connection error:', err.stack);
     });
