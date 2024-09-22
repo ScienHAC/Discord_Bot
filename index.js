@@ -92,8 +92,8 @@ client.on('error', console.error);
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 
-const clientId = '1286992586548052011'; // Replace with your bot's client ID
-const guildId = '1286709387640963135'; // Replace with your server's (guild's) ID
+const clientId = process.env.Client_Id; // Replace with your bot's client ID
+const guildId = process.env.Guild_Id; // Replace with your server's (guild's) ID
 
 const commands = [
     {
