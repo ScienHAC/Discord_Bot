@@ -80,6 +80,18 @@ const db = new sqlite3.Database('./channels.db');
 // Create table to store channels if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS channels (guildId TEXT, channelId TEXT, checkInterval INTEGER, deleteTime INTEGER)`);
 
+// Listen for when the bot joins a new guild
+client.on('guildCreate', (guild) => {
+    console.log(`Joined a new guild: ${guild.name} (ID: ${guild.id})`);
+    db.run(`INSERT OR IGNORE INTO channels (guildId) VALUES (?)`, [guild.id], function(err) {
+        if (err) {
+            console.error('Error adding new guild:', err.message);
+        } else {
+            console.log(`Added new guild to database: ${guild.id}`);
+        }
+    });
+});
+
 // Login to Discord using your bot token
 client.login(process.env.DISCORD_TOKEN);
 
@@ -144,7 +156,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
     const guildId = interaction.guildId; // Automatically detects the guild ID
-    const { commandName, channelId } = interaction; // Removed duplicate guildId declaration
+    const { commandName, channelId } = interaction;
     let checkInterval = 24; // Default check interval in hours (1 day)
     let deleteTime = 2160; // Default delete time in hours (3 months)
 
