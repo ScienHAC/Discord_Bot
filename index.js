@@ -504,16 +504,4 @@ const checkOldMessages = async () => {
 // Schedule the check to run once per day
 setInterval*/
 
-const { Client } = require('pg');
 
-const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-});
-
-client.connect()
-    .then(() => {
-        console.log('Connected to PostgreSQL successfully!');
-    })
-    .catch(err => {
-        console.error('Connection error:', err.stack);
-    });
