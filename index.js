@@ -325,7 +325,7 @@ const commands = [
         options: [
             {
                 name: 'interval',
-                type: 'INTEGER',
+                type: 4, // INTEGER
                 description: 'Interval in hours (e.g., 24 for 1 day)',
                 required: false,
             },
@@ -337,7 +337,7 @@ const commands = [
         options: [
             {
                 name: 'delete_age',
-                type: 'INTEGER',
+                type: 4, // INTEGER
                 description: 'Delete messages older than N hours',
                 required: false,
             },
@@ -352,6 +352,7 @@ const commands = [
         description: 'Show the current settings for all added channels',
     },
 ];
+
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
