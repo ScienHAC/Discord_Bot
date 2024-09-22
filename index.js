@@ -3,7 +3,7 @@ const { Routes } = require('discord-api-types/v9');
 const { Client, GatewayIntentBits } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
-
+console.log(guildId);
 const clientId = process.env.Client_Id; // Replace with your bot's client ID
 const commands = [
     {
