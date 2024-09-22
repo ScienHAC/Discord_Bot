@@ -54,7 +54,7 @@ const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
     try {
         console.log('Started refreshing application (/) commands.');
 
-        await rest.put(Routes.applicationGuildCommands(clientId, process.env.Guild_Id), { // If needed, replace with your server's ID or keep it dynamic
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { // If needed, replace with your server's ID or keep it dynamic
             body: commands,
         });
 
