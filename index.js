@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const clientId = process.env.Client_Id; // Replace with your bot's client ID
+const clientId = process.env.Client_Id;
 const commands = [
     {
         name: 'add-gravbits',
@@ -152,7 +152,7 @@ const fetchChannelName = async (channelId) => {
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
 
-    const guildId = interaction.guildId; // Automatically detects the guild ID
+    const guildId = interaction.guildId;
     const { commandName, channelId } = interaction;
     let checkInterval = 24; // Default check interval in hours (1 day)
     let deleteTime = 2160; // Default delete time in hours (3 months)
@@ -179,8 +179,12 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply(`Deleted the last 10 messages in this channel.`);
     } else if (commandName === 'status') {
         const channels = await getChannelsForGuild(guildId);
-        let statusMessage = 'Current Settings:\n';
+        if (channels.length === 0) {
+            await interaction.reply('No channels found for this guild.');
+            return;
+        }
 
+        let statusMessage = 'Current Settings:\n';
         for (const row of channels) {
             const channelName = await fetchChannelName(row.channelId);
             statusMessage += `Channel: ${channelName}, Check Interval: ${row.checkInterval}h, Delete messages older than: ${row.deleteTime}h\n`;
@@ -188,6 +192,12 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.reply(statusMessage);
     }
+});
+
+// Automatically register commands when the bot is invited to a new guild
+client.on('guildCreate', async (guild) => {
+    console.log(`Joined new guild: ${guild.name} (${guild.id})`);
+    await registerCommandsForGuild(guild.id);
 });
 
 // Function to check and delete old messages in all stored channels
@@ -235,22 +245,8 @@ const checkOldMessages = async () => {
 // Schedule the check to run once per day
 setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
 
-// Create the table at the start
-createTable();
-
-// Ready event
-client.once('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-    
-    // Register commands for each guild the bot is in
-    const guilds = await client.guilds.fetch();
-    guilds.forEach(guild => {
-        registerCommandsForGuild(guild.id);
-    });
+// Create the table at the start if it doesn't exist
+createTable().then(() => {
+    // Login to Discord bot
+    client.login(process.env.DISCORD_TOKEN);
 });
-
-// Error handling
-client.on('error', console.error);
-
-// Login to Discord using your bot token
-client.login(process.env.DISCORD_TOKEN);
