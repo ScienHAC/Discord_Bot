@@ -89,6 +89,41 @@ const deleteOldMessages = async (channel) => {
 // Error handling
 client.on('error', console.error);
 */
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
+
+const clientId = '1286992586548052011'; // Replace with your bot's client ID
+const guildId = '1286709387640963135'; // Replace with your server's (guild's) ID
+
+const commands = [
+    {
+        name: 'add-gravbits',
+        description: 'Add this channel for message deletion.',
+    },
+    {
+        name: 'remove-gravbits',
+        description: 'Remove this channel from the deletion list.',
+    },
+];
+
+const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+    try {
+        console.log('Started refreshing application (/) commands.');
+
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+            body: commands,
+        });
+
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error(error);
+    }
+})();
+
+
+
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
