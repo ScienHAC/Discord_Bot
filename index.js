@@ -47,21 +47,6 @@ const client = new Client({
     ],
 });
 
-// Function to register commands for a specific guild
-const registerCommandsForGuild = async (guildId) => {
-    try {
-        console.log(`Started refreshing application (/) commands for guild: ${guildId}`);
-        
-        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-            body: commands,
-        });
-
-        console.log('Successfully reloaded application (/) commands.');
-    } catch (error) {
-        console.error('Error reloading commands:', error);
-    }
-};
-
 // Function to upsert (insert or update) channel settings
 const upsertChannel = async (guildId, channelId, checkInterval, deleteTime) => {
     if (!channelId) {
@@ -81,23 +66,6 @@ const upsertChannel = async (guildId, channelId, checkInterval, deleteTime) => {
         console.log(`Channel ${channelId} added/updated for guild ${guildId}.`);
     } catch (err) {
         console.error('Error upserting channel:', err.message);
-    }
-};
-
-// Function to remove channel settings
-const removeChannel = async (guildId, channelId) => {
-    if (!channelId) {
-        console.error('Cannot remove: channelId is undefined.');
-        return;
-    }
-
-    const query = `DELETE FROM channels WHERE guildId = $1 AND channelId = $2`;
-
-    try {
-        await pool.query(query, [guildId, channelId]);
-        console.log(`Channel ${channelId} removed from guild ${guildId}.`);
-    } catch (err) {
-        console.error('Error removing channel:', err.message);
     }
 };
 
@@ -142,23 +110,6 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'add-gravbits') {
         await upsertChannel(guildId, channelId, checkInterval, deleteTime);
         await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been added for message deletion.`);
-    } else if (commandName === 'remove-gravbits') {
-        await removeChannel(guildId, channelId);
-        await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been removed from the deletion list.`);
-    } else if (commandName === 'check-gravbits') {
-        checkInterval = interaction.options.getInteger('interval') || 24; // Use provided interval or default
-        await upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Check interval for channel ${await fetchChannelName(channelId)} has been set to ${checkInterval} hours.`);
-    } else if (commandName === 'deltime-gravbits') {
-        deleteTime = interaction.options.getInteger('delete_age') || 2160; // Use provided delete time or default
-        await upsertChannel(guildId, channelId, checkInterval, deleteTime);
-        await interaction.reply(`Messages older than ${deleteTime} hours will be deleted in channel ${await fetchChannelName(channelId)}.`);
-    } else if (commandName === 'delete-gravbits') {
-        const messages = await interaction.channel.messages.fetch({ limit: 10 });
-        const deletePromises = messages.map(msg => msg.delete());
-
-        await Promise.all(deletePromises);
-        await interaction.reply(`Deleted the last 10 messages in this channel.`);
     } else if (commandName === 'status') {
         const channels = await getChannelsForGuild(guildId);
         if (channels.length === 0) {
@@ -174,12 +125,6 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.reply(statusMessage);
     }
-});
-
-// Automatically register commands when the bot is invited to a new guild
-client.on('guildCreate', async (guild) => {
-    console.log(`Joined new guild: ${guild.name} (${guild.id})`);
-    await registerCommandsForGuild(guild.id);
 });
 
 // Function to check and delete old messages in all stored channels
