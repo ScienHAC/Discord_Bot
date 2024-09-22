@@ -247,6 +247,69 @@ setInterval(checkOldMessages, 24 * 60 * 60 * 1000); // 1 day interval
 client.on('error', console.error);
 */
 
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
+
+const clientId = process.env.Client_Id; // Replace with your bot's client ID
+const guildId = process.env.Guild_Id; // Replace with your server's (guild's) ID
+
+const commands = [
+    {
+        name: 'add-gravbits',
+        description: 'Add this channel for message deletion.',
+    },
+    {
+        name: 'remove-gravbits',
+        description: 'Remove this channel from the deletion list.',
+    },
+    {
+        name: 'check-gravbits',
+        description: 'Manually trigger a check for old messages. Optionally specify in hours.',
+        options: [
+            {
+                name: 'hours',
+                type: 4, // INTEGER
+                description: 'Number of hours after which to check for deletion. Defaults to 24 hours.',
+                required: false
+            }
+        ]
+    },
+    {
+        name: 'deltime-gravbits',
+        description: 'Set the message deletion time limit in hours. Default is 3 months (2160 hours).',
+        options: [
+            {
+                name: 'hours',
+                type: 4, // INTEGER
+                description: 'Number of hours to keep messages before deletion.',
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'status',
+        description: 'Get the current deletion settings and added channels.'
+    }
+];
+
+const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+    try {
+        console.log('Started refreshing application (/) commands.');
+
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+            body: commands,
+        });
+
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error(error);
+    }
+})();
+
+
+
 const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
