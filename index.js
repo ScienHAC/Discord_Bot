@@ -284,8 +284,18 @@ client.on('interactionCreate', async (interaction) => {
 
     const guildId = interaction.guildId; // Automatically detects the guild ID
     const { commandName, channelId } = interaction;
+
+    // Default values
     let checkInterval = 24; // Default check interval in hours (1 day)
     let deleteTime = 2160; // Default delete time in hours (3 months)
+
+    // Fetch the current settings first
+    const currentSettings = await getChannelsForGuild(guildId);
+    const currentChannelSettings = currentSettings.find(ch => ch.channelId === channelId);
+    if (currentChannelSettings) {
+        checkInterval = currentChannelSettings.checkInterval;
+        deleteTime = currentChannelSettings.deleteTime;
+    }
 
     if (commandName === 'add-gravbits') {
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
@@ -294,11 +304,11 @@ client.on('interactionCreate', async (interaction) => {
         removeChannel(guildId, channelId);
         await interaction.reply(`Channel ${await fetchChannelName(channelId)} has been removed from the deletion list.`);
     } else if (commandName === 'check-gravbits') {
-        checkInterval = interaction.options.getInteger('interval') || 24; // Use provided interval or default
+        checkInterval = interaction.options.getInteger('interval') || checkInterval; // Use provided interval or existing
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
         await interaction.reply(`Check interval for channel ${await fetchChannelName(channelId)} has been set to ${checkInterval} hours.`);
     } else if (commandName === 'deltime-gravbits') {
-        deleteTime = interaction.options.getInteger('delete_age') || 2160; // Use provided delete time or default
+        deleteTime = interaction.options.getInteger('delete_age') || deleteTime; // Use provided delete time or existing
         upsertChannel(guildId, channelId, checkInterval, deleteTime);
         await interaction.reply(`Messages older than ${deleteTime} hours will be deleted in channel ${await fetchChannelName(channelId)}.`);
     } else if (commandName === 'delete-gravbits') {
@@ -319,6 +329,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply(statusMessage);
     }
 });
+
 
 // Function to check and delete old messages in all stored channels
 const checkOldMessages = async () => {
