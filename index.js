@@ -325,7 +325,24 @@ async function autoDeleteMessages() {
 
       // Set an interval for each channel to scan and delete messages
       setInterval(async () => {
-        const channel = bot.channels.cache.get(channel_id);
+        let channel = bot.channels.cache.get(channel_id);
+
+        // If the channel is not cached, try fetching it
+        if (!channel) {
+          try {
+            const guild = bot.guilds.cache.get(guild_id);
+            if (!guild) {
+              console.log(`Guild ${guild_id} not found.`);
+              return;
+            }
+            channel = await guild.channels.fetch(channel_id);
+          } catch (fetchError) {
+            console.log(`Failed to fetch channel ${channel_id}: ${fetchError.message}`);
+            return;
+          }
+        }
+
+        // Check if the channel is a text channel
         if (!channel || channel.type !== 'GUILD_TEXT') {
           console.log(`Channel ${channel_id} not found or not a text channel.`);
           return;
@@ -363,6 +380,7 @@ async function autoDeleteMessages() {
     console.error('Error during auto-delete setup:', error);
   }
 }
+
 
 bot.on("ready", async () => {
   console.log(`Logged in as ${bot.user.tag}`);
