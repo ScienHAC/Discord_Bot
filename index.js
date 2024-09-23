@@ -478,35 +478,14 @@ const commands = [
       },
     ],
   },
-  {
-    name: "scan",
-    description: "Show all channels being monitored in this guild.",
-  },
 ];
-
-// Function to delete all commands for a specific guild
-async function deleteAllCommands(guildId) {
-  try {
-    console.log(`Started deleting all commands for guild: ${guildId}`);
-
-    const commands = await rest.get(Routes.applicationGuildCommands(clientId, guildId));
-    const deletePromises = commands.map(command => 
-      rest.delete(Routes.applicationGuildCommand(clientId, guildId, command.id))
-    );
-
-    await Promise.all(deletePromises);
-    console.log(`Successfully deleted all commands for guild: ${guildId}`);
-  } catch (error) {
-    console.error('Error deleting commands:', error);
-  }
-}
 
 // Function to register commands for a specific guild
 const registerCommandsForGuild = async (guildId) => {
   try {
-    console.log(`Started registering application (/) commands for guild: ${guildId}`);
+    console.log(`Started refreshing application (/) commands for guild: ${guildId}`);
     await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-    console.log('Successfully registered application (/) commands.');
+    console.log('Successfully reloaded application (/) commands.');
   } catch (error) {
     console.error('Error registering commands:', error);
   }
@@ -525,17 +504,146 @@ const bot = new DiscordClient({
 bot.on("ready", async () => {
   console.log(`Logged in as ${bot.user.tag}`);
   const guilds = bot.guilds.cache.map(guild => guild.id);
-  
   for (const guildId of guilds) {
-    await deleteAllCommands(guildId); // Delete existing commands
-    await registerCommandsForGuild(guildId); // Register new commands
+    await registerCommandsForGuild(guildId);
   }
 
   // Start the periodic scanning for messages
   setInterval(scanAndDeleteMessages, 60000); // Run every minute
 });
 
-// ... (rest of your existing code for handling commands)
+// Check if user has the bot_cmd role
+const hasBotCmdRole = (member) => {
+  return member.roles.cache.some(role => role.name === 'bot_cmd');
+};
+
+// Handle commands
+bot.on("interactionCreate", async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  const { commandName, member } = interaction;
+
+  if (!hasBotCmdRole(member)) {
+    await interaction.reply({ content: "You don't have permission to use this command.", ephemeral: true });
+    return;
+  }
+
+  const guildId = interaction.guild.id;
+  const channelId = interaction.channel.id;
+
+  switch (commandName) {
+    case "add-gravbits":
+      await addOrUpdateChannel(guildId, channelId);
+      await interaction.reply(`Channel added for monitoring: scanning every 1 minute.`);
+      break;
+
+    case "check-gravbits":
+      const newInterval = interaction.options.getInteger("interval") || 1;
+      await handleCheckGravbits(guildId, channelId, newInterval);
+      await interaction.reply(`Scan interval updated to ${newInterval} minutes.`);
+      break;
+
+    case "deltime-gravbits":
+      const newDeleteAge = interaction.options.getInteger("delete_age") || 1;
+      await handleDeleteAge(guildId, channelId, newDeleteAge);
+      await interaction.reply(`Delete age updated to ${newDeleteAge} minutes.`);
+      break;
+
+    case "delete-gravbits":
+      const messageCount = interaction.options.getInteger("count") || 10;
+      await handleDeleteGravbits(interaction, guildId, channelId, messageCount); // Pass interaction
+      break;
+
+    case "remove-gravbits":
+      await handleRemoveGravbits(guildId, channelId);
+      await interaction.reply(`Channel removed from monitoring.`);
+      break;
+
+    // Removed the /scan command handling here
+  }
+});
+
+// Function to add or update a channel for scanning
+async function addOrUpdateChannel(guildId, channelId) {
+  try {
+    await pgClient.query(`
+      INSERT INTO gravbits_channels (guild_id, channel_id, interval, delete_age)
+      VALUES ($1, $2, 1, 1)
+      ON CONFLICT (guild_id, channel_id) DO UPDATE
+      SET interval = 1, delete_age = 1
+    `, [guildId, channelId]);
+    console.log(`Channel ${channelId} in guild ${guildId} added/updated for scanning.`);
+  } catch (error) {
+    console.error('Error adding/updating channel:', error);
+  }
+}
+
+async function handleDeleteAge(guildId, channelId, newDeleteAge) {
+  try {
+    await pgClient.query(`
+      UPDATE gravbits_channels
+      SET delete_age = $3
+      WHERE guild_id = $1 AND channel_id = $2
+    `, [guildId, channelId, newDeleteAge]);
+    console.log(`Updated delete age for channel ${channelId} in guild ${guildId} to ${newDeleteAge} minutes.`);
+  } catch (error) {
+    console.error('Error updating delete age:', error);
+  }
+}
+
+// Function to handle /deltime-gravbits command
+async function handleCheckGravbits(guildId, channelId, newInterval) {
+  try {
+    await pgClient.query(`
+      UPDATE gravbits_channels
+      SET interval = $3
+      WHERE guild_id = $1 AND channel_id = $2
+    `, [guildId, channelId, newInterval]);
+    console.log(`Updated scan interval for channel ${channelId} in guild ${guildId} to ${newInterval} minutes.`);
+  } catch (error) {
+    console.error('Error updating interval:', error);
+  }
+}
+
+// Function to handle /remove-gravbits command
+async function handleRemoveGravbits(guildId, channelId) {
+  try {
+    await pgClient.query(`
+      DELETE FROM gravbits_channels
+      WHERE guild_id = $1 AND channel_id = $2
+    `, [guildId, channelId]);
+    console.log(`Channel ${channelId} removed from monitoring in guild ${guildId}.`);
+  } catch (error) {
+    console.error('Error removing channel:', error);
+  }
+}
+
+// Function to periodically scan and delete messages
+async function scanAndDeleteMessages() {
+  try {
+    const result = await pgClient.query(`
+      SELECT channel_id, delete_age FROM gravbits_channels
+    `);
+    const currentTime = Date.now();
+
+    for (const row of result.rows) {
+      const channel = bot.channels.cache.get(row.channel_id);
+      if (!channel || channel.type !== 'GUILD_TEXT') continue; // Ensure it's a text channel
+
+      const deleteAgeInMillis = row.delete_age * 60 * 1000; // Convert minutes to milliseconds
+      const messages = await channel.messages.fetch({ limit: 100 });
+
+      const messagesToDelete = messages.filter(msg => (currentTime - msg.createdTimestamp) > deleteAgeInMillis);
+      if (messagesToDelete.size > 0) {
+        await channel.bulkDelete(messagesToDelete, true);
+        console.log(`Deleted ${messagesToDelete.size} messages in channel ${row.channel_id}.`);
+      }
+    }
+  } catch (error) {
+    console.error('Error during periodic scanning and deletion:', error);
+  }
+}
 
 // Log in to Discord
 bot.login(process.env.DISCORD_TOKEN);
+
