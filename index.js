@@ -458,7 +458,6 @@ async function handleCheckGravbits(guildId, channelId, newInterval) {
 //function delete message 
 async function handleDeleteGravbits(interaction, guildId, channelId, messageCount) {
   const channel = bot.channels.cache.get(channelId);
-  const messageCount = process.env.MESSAGE_COUNT || 100;
   if (message.author.bot) return;
   if (!channel) {
       console.log(`Channel with ID ${channelId} not found!`);
@@ -467,7 +466,7 @@ async function handleDeleteGravbits(interaction, guildId, channelId, messageCoun
 
   try {
       // Fetch and delete the most recent 100 messages
-      const fetchedMessages = await channel.messages.fetch({ limit: messageCount });
+      const fetchedMessages = await channel.messages.fetch({ limit: messageCount || 100 });
       await channel.bulkDelete(fetchedMessages, true);
       console.log(`Deleted ${fetchedMessages.size} messages in ${channel.name}`);
 
