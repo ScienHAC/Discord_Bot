@@ -460,24 +460,40 @@ async function handleDeleteGravbits(interaction, guildId, channelId, messageCoun
   const channel = bot.channels.cache.get(channelId);
   if (!channel) {
     console.log(`Channel with ID ${channelId} not found!`);
+    await interaction.reply("Channel not found!");
     return;
   }
 
   try {
-    // Fetch and delete the most recent messages
+    // Fetch messages and filter out bot messages
     const fetchedMessages = await channel.messages.fetch({ limit: messageCount || 100 });
-    // Filter out bot messages if necessary
+
+    if (fetchedMessages.size === 0) {
+      console.log("No messages found to delete.");
+      await interaction.reply("No messages found to delete.");
+      return;
+    }
+
     const messagesToDelete = fetchedMessages.filter(msg => !msg.author.bot);
+
+    if (messagesToDelete.size === 0) {
+      console.log("No messages available to delete (all messages are from bots).");
+      await interaction.reply("No messages available to delete (all messages are from bots).");
+      return;
+    }
 
     await channel.bulkDelete(messagesToDelete, true);
     console.log(`Deleted ${messagesToDelete.size} messages in ${channel.name}`);
 
     // Optional: Send a message to the channel after deletion
     await channel.send(`Deleted ${messagesToDelete.size} recent messages.`);
+    await interaction.reply(`Deleted ${messagesToDelete.size} messages.`);
   } catch (error) {
     console.error(`Error deleting messages in ${channelId}:`, error);
+    await interaction.reply("There was an error trying to delete messages.");
   }
 }
+
 
 
 // Function to handle /scan command
