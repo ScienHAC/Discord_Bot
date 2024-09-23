@@ -396,22 +396,103 @@ bot.login(process.env.DISCORD_TOKEN);
 
 */
 
+const { Client } = require("pg");
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v9");
+const { Client: DiscordClient, GatewayIntentBits } = require("discord.js");
+require("dotenv").config();
 
+const clientId = process.env.Client_Id;
+
+// Use environment variables for PostgreSQL connection
+const pgClient = new Client({
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT,
+});
+
+// Connect to PostgreSQL and create table if it doesn't exist
+pgClient
+  .connect()
+  .then(() => {
+    console.log("Connected to PostgreSQL");
+    return pgClient.query(`
+      CREATE TABLE IF NOT EXISTS gravbits_channels (
+        guild_id VARCHAR(255),
+        channel_id VARCHAR(255),
+        interval INT DEFAULT 1,
+        delete_age INT DEFAULT 1,
+        PRIMARY KEY (guild_id, channel_id)
+      );
+    `);
+  })
+  .then(() => console.log("Table gravbits_channels is ready"))
+  .catch((err) => console.error("Connection error", err.stack));
+
+// Command registration
+const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
+const commands = [
+  {
+    name: "add-gravbits",
+    description: "Add this channel for message deletion.",
+  },
+  {
+    name: "remove-gravbits",
+    description: "Remove this channel from the deletion list.",
+  },
+  {
+    name: "check-gravbits",
+    description: "Set the interval for message deletion (minutes).",
+    options: [
+      {
+        name: "interval",
+        type: 4,
+        description: "Interval in minutes",
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "deltime-gravbits",
+    description: "Set the time for messages to be deleted (older than N minutes).",
+    options: [
+      {
+        name: "delete_age",
+        type: 4,
+        description: "Delete messages older than N minutes",
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "delete-gravbits",
+    description: "Delete a specific number of messages from the current channel.",
+    options: [
+      {
+        name: "count",
+        type: 4,
+        description: "Number of messages to delete",
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "scan",
+    description: "Show all channels being monitored in this guild.",
+  },
+];
+
+// Function to delete all commands for a specific guild
 async function deleteAllCommands(guildId) {
-  const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
-
   try {
     console.log(`Started deleting all commands for guild: ${guildId}`);
 
-    // Fetch all registered commands
-    const commands = await rest.get(Routes.applicationGuildCommands(process.env.Client_Id, guildId));
-    
-    // Delete each command
-    const deletePromises = commands.map(command => {
-      return rest.delete(Routes.applicationGuildCommand(process.env.Client_Id, guildId, command.id));
-    });
+    const commands = await rest.get(Routes.applicationGuildCommands(clientId, guildId));
+    const deletePromises = commands.map(command => 
+      rest.delete(Routes.applicationGuildCommand(clientId, guildId, command.id))
+    );
 
     await Promise.all(deletePromises);
     console.log(`Successfully deleted all commands for guild: ${guildId}`);
@@ -420,23 +501,41 @@ async function deleteAllCommands(guildId) {
   }
 }
 
-// Usage
+// Function to register commands for a specific guild
+const registerCommandsForGuild = async (guildId) => {
+  try {
+    console.log(`Started registering application (/) commands for guild: ${guildId}`);
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
+    console.log('Successfully registered application (/) commands.');
+  } catch (error) {
+    console.error('Error registering commands:', error);
+  }
+};
+
+// Initialize Discord bot
+const bot = new DiscordClient({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+// Register commands when the bot is ready
 bot.on("ready", async () => {
   console.log(`Logged in as ${bot.user.tag}`);
   const guilds = bot.guilds.cache.map(guild => guild.id);
   
-  // Delete commands for each guild
   for (const guildId of guilds) {
-    await deleteAllCommands(guildId);
+    await deleteAllCommands(guildId); // Delete existing commands
+    await registerCommandsForGuild(guildId); // Register new commands
   }
 
-  // Now you can register your commands again
-  await registerCommandsForAllGuilds(guilds);
+  // Start the periodic scanning for messages
+  setInterval(scanAndDeleteMessages, 60000); // Run every minute
 });
 
-// Function to register commands for all guilds
-async function registerCommandsForAllGuilds(guilds) {
-  for (const guildId of guilds) {
-    await registerCommandsForGuild(guildId);
-  }
-}
+// ... (rest of your existing code for handling commands)
+
+// Log in to Discord
+bot.login(process.env.DISCORD_TOKEN);
