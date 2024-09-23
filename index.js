@@ -455,6 +455,29 @@ async function handleCheckGravbits(guildId, channelId, newInterval) {
   }
 }
 
+//function delete message 
+async function handleDeleteGravbits(interaction, guildId, channelId, messageCount) {
+  const channel = bot.channels.cache.get(channelId);
+  const messageCount = process.env.MESSAGE_COUNT || 100;
+  if (message.author.bot) return;
+  if (!channel) {
+      console.log(`Channel with ID ${channelId} not found!`);
+      return;
+  }
+
+  try {
+      // Fetch and delete the most recent 100 messages
+      const fetchedMessages = await channel.messages.fetch({ limit: messageCount });
+      await channel.bulkDelete(fetchedMessages, true);
+      console.log(`Deleted ${fetchedMessages.size} messages in ${channel.name}`);
+
+      // Optional: Send a message to the channel after deletion
+      channel.send(`Deleted ${fetchedMessages.size} recent messages.`);
+  } catch (error) {
+      console.error(`Error deleting messages in ${channelId}:`, error);
+  }
+}
+
 // Function to handle /scan command
 async function handleScan(interaction, guildId) {
   try {
