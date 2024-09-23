@@ -1,4 +1,4 @@
-
+/*
 
 const { Client } = require("pg");
 const { REST } = require("@discordjs/rest");
@@ -394,3 +394,49 @@ bot.on("ready", async () => {
 // Log in to Discord
 bot.login(process.env.DISCORD_TOKEN);
 
+*/
+
+const { REST } = require("@discordjs/rest");
+const { Routes } = require("discord-api-types/v9");
+
+async function deleteAllCommands(guildId) {
+  const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
+
+  try {
+    console.log(`Started deleting all commands for guild: ${guildId}`);
+
+    // Fetch all registered commands
+    const commands = await rest.get(Routes.applicationGuildCommands(process.env.Client_Id, guildId));
+    
+    // Delete each command
+    const deletePromises = commands.map(command => {
+      return rest.delete(Routes.applicationGuildCommand(process.env.Client_Id, guildId, command.id));
+    });
+
+    await Promise.all(deletePromises);
+    console.log(`Successfully deleted all commands for guild: ${guildId}`);
+  } catch (error) {
+    console.error('Error deleting commands:', error);
+  }
+}
+
+// Usage
+bot.on("ready", async () => {
+  console.log(`Logged in as ${bot.user.tag}`);
+  const guilds = bot.guilds.cache.map(guild => guild.id);
+  
+  // Delete commands for each guild
+  for (const guildId of guilds) {
+    await deleteAllCommands(guildId);
+  }
+
+  // Now you can register your commands again
+  await registerCommandsForAllGuilds(guilds);
+});
+
+// Function to register commands for all guilds
+async function registerCommandsForAllGuilds(guilds) {
+  for (const guildId of guilds) {
+    await registerCommandsForGuild(guildId);
+  }
+}
