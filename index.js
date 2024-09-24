@@ -239,7 +239,7 @@ async function handleScan(interaction, guildId) {
 
         const channelList = await Promise.all(result.rows.map(async (row) => {
             const channel = bot.channels.cache.get(row.channel_id);
-            return channel ? `${channel.name}: Interval - ${row.interval} min, Delete Age - ${row.delete_age} min` : `Channel ID ${row.channel_id} not found.`;
+            return channel ? `${channel.name}: Interval - ${row.interval} hour, Delete Age - ${row.delete_age} hour` : `Channel ID ${row.channel_id} not found.`;
         }));
 
         const responseMessage = channelList.length > 0 ? channelList.join("\n") : "No channels monitored in this guild.";
