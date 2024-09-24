@@ -311,85 +311,71 @@ async function scanAndDeleteMessages() {
   }
 }
 
-/*async function autoDeleteMessages() {
+// New added code 
+// Function to get channel intervals and delete_age from the database
+async function fetchChannelSettings() {
+  const query = `SELECT guild_id, channel_id, interval, delete_age FROM channels`;
+  const res = await pgClient.query(query);
+  return res.rows;
+}
+
+// Function to delete old messages
+async function deleteOldMessages(channelId, deleteAgeMinutes) {
+  const channel = await discordClient.channels.fetch(channelId);
+  const now = Date.now();
+  const deleteBefore = now - deleteAgeMinutes * 60 * 1000;
+
+  let deletedCount = 0;
+
   try {
-    const result = await pgClient.query(`
-      SELECT guild_id, channel_id, interval, delete_age FROM gravbits_channels
-    `);
+    // Fetch messages from the channel
+    const messages = await channel.messages.fetch({ limit: 100 });
+    messages.forEach(async (message) => {
+      if (message.createdTimestamp < deleteBefore) {
+        await message.delete();
+        deletedCount++;
+      }
+    });
 
-    for (const row of result.rows) {
-      const { guild_id, channel_id, interval, delete_age } = row;
-
-      // Convert interval to milliseconds
-      const intervalInMillis = interval * 60 * 1000;
-
-      // Set an interval for each channel to scan and delete messages
-      setInterval(async () => {
-        let channel = bot.channels.cache.get(channel_id);
-
-        // If the channel is not cached, try fetching it
-        if (!channel) {
-          try {
-            const guild = bot.guilds.cache.get(guild_id);
-            if (!guild) {
-              console.log(`Guild ${guild_id} not found.`);
-              return;
-            }
-            channel = await guild.channels.fetch(channel_id);
-          } catch (fetchError) {
-            console.log(`Failed to fetch channel ${channel_id}: ${fetchError.message}`);
-            return;
-          }
-        }
-
-        // Check if the channel is a text channel
-        if (!channel || channel.type !== 'GUILD_TEXT') {
-          console.log(`Channel ${channel_id} not found or not a text channel.`);
-          return;
-        }
-
-        try {
-          const currentTime = Date.now();
-          const deleteAgeInMillis = delete_age * 60 * 1000; // Convert delete_age to milliseconds
-
-          // Fetch messages from the channel (limit to 100)
-          const messages = await channel.messages.fetch({ limit: 100 });
-
-          // Filter messages older than the delete_age
-          const messagesToDelete = messages.filter(msg => (currentTime - msg.createdTimestamp) > deleteAgeInMillis);
-
-          if (messagesToDelete.size > 0) {
-            await channel.bulkDelete(messagesToDelete, true);
-            console.log(`Deleted ${messagesToDelete.size} messages in channel ${channel.name} (Guild: ${guild_id}).`);
-            // Optional: Send a message to the channel indicating how many messages were deleted
-            channel.send(`Deleted ${messagesToDelete.size} messages.`);
-          } else {
-            console.log(`No messages found older than ${delete_age} minutes in channel ${channel.name} (Guild: ${guild_id}).`);
-            // Optional: Send a message indicating no messages were found
-            channel.send(`No messages older than ${delete_age} minutes to delete.`);
-          }
-        } catch (error) {
-          console.error(`Error deleting messages in channel ${channel_id}:`, error);
-        }
-
-      }, intervalInMillis); // Execute the scan at the interval set for this channel
-
-      console.log(`Auto-deleting messages in channel ${channel_id} (Guild: ${guild_id}) every ${interval} minutes.`);
+    // Log how many messages were deleted
+    if (deletedCount > 0) {
+      channel.send(`${deletedCount} messages were deleted.`);
+    } else {
+      channel.send(`No older messages to delete.`);
     }
-  } catch (error) {
-    console.error('Error during auto-delete setup:', error);
+  } catch (err) {
+    console.error(`Error deleting messages in channel ${channelId}:`, err);
   }
 }
 
+// Function to handle intervals for each channel
+async function setupIntervals() {
+  const settings = await fetchChannelSettings();
 
-bot.on("ready", async () => {
-  console.log(`Logged in as ${bot.user.tag}`);
-  
-  await autoDeleteMessages();  // Call the auto-delete function to start intervals based on the database
-  
-  console.log('Auto-delete setup complete.');
-});*/
+  settings.forEach((setting) => {
+    const { guild_id, channel_id, interval, delete_age } = setting;
 
+    // Convert interval from minutes to milliseconds
+    const intervalMs = interval * 60 * 1000;
+
+    // Set up setInterval for each channel
+    setInterval(async () => {
+      await deleteOldMessages(channel_id, delete_age);
+    }, intervalMs);
+
+    console.log(
+      `Set up interval for Guild ${guild_id}, Channel ${channel_id} to check every ${interval} minutes and delete messages older than ${delete_age} minutes.`
+    );
+  });
+}
+
+// Once the bot is ready, set up the intervals
+discordClient.once("ready", async () => {
+  console.log(`Logged in as ${discordClient.user.tag}!`);
+  await setupIntervals(); // Fetch settings and start intervals
+});
+
+//end
 
 // Log in to Discord
 bot.login(process.env.DISCORD_TOKEN);
