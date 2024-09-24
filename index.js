@@ -145,7 +145,7 @@ bot.on("ready", async () => {
     }
 
     // Start the periodic scanning for messages
-    //setInterval(scanAndDeleteMessages, 60000); // Run every minute
+    setInterval(scanAndDeleteMessages, 60000); // Run every minute
 });
 
 // Check if user has the bot_cmd role
