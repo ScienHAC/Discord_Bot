@@ -311,7 +311,7 @@ async function scanAndDeleteMessages() {
   }
 }
 
-async function autoDeleteMessages() {
+/*async function autoDeleteMessages() {
   try {
     const result = await pgClient.query(`
       SELECT guild_id, channel_id, interval, delete_age FROM gravbits_channels
@@ -388,7 +388,7 @@ bot.on("ready", async () => {
   await autoDeleteMessages();  // Call the auto-delete function to start intervals based on the database
   
   console.log('Auto-delete setup complete.');
-});
+});*/
 
 
 // Log in to Discord
