@@ -314,14 +314,14 @@ async function scanAndDeleteMessages() {
 // New added code 
 // Function to get channel intervals and delete_age from the database
 async function fetchChannelSettings() {
-  const query = `SELECT guild_id, channel_id, interval, delete_age FROM channels`;
+  const query = `SELECT guild_id, channel_id, interval, delete_age FROM gravbits_channels`;
   const res = await pgClient.query(query);
   return res.rows;
 }
 
 // Function to delete old messages
 async function deleteOldMessages(channelId, deleteAgeMinutes) {
-  const channel = await discordClient.channels.fetch(channelId);
+  const channel = await bot.channels.fetch(channelId);
   const now = Date.now();
   const deleteBefore = now - deleteAgeMinutes * 60 * 1000;
 
@@ -370,10 +370,11 @@ async function setupIntervals() {
 }
 
 // Once the bot is ready, set up the intervals
-discordClient.once("ready", async () => {
-  console.log(`Logged in as ${discordClient.user.tag}!`);
+bot.once("ready", async () => {
+  console.log(`Logged in as ${bot.user.tag}!`);
   await setupIntervals(); // Fetch settings and start intervals
 });
+
 
 //end
 
