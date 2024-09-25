@@ -389,7 +389,7 @@ async function setupIntervals() {
 }
 
 // Once the bot is ready, set up the intervals
-bot.once("ready", async () => {
+bot.on("ready", async () => {
   console.log(`Logged in as ${bot.user.tag}!`);
   await setupIntervals(); // Fetch settings and start intervals
 });
