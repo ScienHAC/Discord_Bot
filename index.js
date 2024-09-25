@@ -88,13 +88,34 @@ const commands = [
 
 // Function to register commands for a specific guild
 const registerCommandsForGuild = async (guildId) => {
-  try {
-    console.log(`Started refreshing application (/) commands for guild: ${guildId}`);
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-    console.log('Successfully reloaded application (/) commands.');
-  } catch (error) {
-    console.error('Error registering commands:', error);
-  }
+    try {
+        console.log(`Started refreshing application (/) commands for guild: ${guildId}`);
+
+        // Fetch existing commands in the guild
+        const existingCommands = await rest.get(
+            Routes.applicationGuildCommands(clientId, guildId)
+        );
+
+        const existingCommandNames = existingCommands.map(command => command.name);
+
+        // Filter out commands that are already registered
+        const newCommands = commands.filter(
+            command => !existingCommandNames.includes(command.name)
+        );
+
+        if (newCommands.length > 0) {
+            // Register only new commands
+            await rest.put(
+                Routes.applicationGuildCommands(clientId, guildId),
+                { body: newCommands }
+            );
+            console.log('Successfully registered new application (/) commands.');
+        } else {
+            console.log('No new commands to register.');
+        }
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
 };
 
 // Initialize Discord bot
