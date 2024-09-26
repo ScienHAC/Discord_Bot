@@ -147,12 +147,14 @@ bot.on("interactionCreate", async (interaction) => {
       const newInterval = interaction.options.getInteger("interval") || 1;
       await handleCheckGravbits(guildId, channelId, newInterval);
       await interaction.reply(`Scan interval updated to ${newInterval} minutes.`);
+      await setupIntervals();
       break;
 
     case "deltime-gravbits":
       const newDeleteAge = interaction.options.getInteger("delete_age") || 1;
       await handleDeleteAge(guildId, channelId, newDeleteAge);
       await interaction.reply(`Delete age updated to ${newDeleteAge} minutes.`);
+      await setupIntervals();
       break;
 
     case "delete-gravbits":
