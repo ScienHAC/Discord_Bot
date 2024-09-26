@@ -141,6 +141,7 @@ bot.on("interactionCreate", async (interaction) => {
         case "add-gravbits":
             await addOrUpdateChannel(guildId, channelId);
             await interaction.reply(`Channel added for monitoring: scanning every 1 hours.`);
+            await setupIntervals();
             break;
 
         case "check-gravbits":
