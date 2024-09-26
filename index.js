@@ -772,7 +772,7 @@ async function deleteOldMessages(channelId, deleteAgeMinutes) {
 }
 
 // Fetch channel settings from the database
-async function fetchChannelSettings() {
+/*async function fetchChannelSettings() {
   const res = await pgClient.query(`SELECT guild_id, channel_id, interval, delete_age FROM gravbits_channels`);
   return res.rows;
 }
@@ -816,7 +816,72 @@ async function handleRemoveGravbits(guildId, channelId) {
 bot.once("ready", async () => {
   console.log(`Logged in as ${bot.user.tag}`);
   await setupIntervals(); // Fetch settings and start intervals
+});*/
+
+// New added code 
+// Function to get channel intervals and delete_age from the database
+async function fetchChannelSettings() {
+  const query = `SELECT guild_id, channel_id, interval, delete_age FROM gravbits_channels`;
+  const res = await pgClient.query(query);
+  return res.rows;
+}
+
+// Function to delete old messages
+async function deleteOldMessages(channelId, deleteAgeMinutes) {
+  const channel = await bot.channels.fetch(channelId);
+  const now = Date.now();
+  const deleteBefore = now - deleteAgeMinutes * 60 * 1000;
+
+  let deletedCount = 0;
+
+  try {
+    // Fetch messages from the channel
+    const messages = await channel.messages.fetch({ limit: 100 });
+    messages.forEach(async (message) => {
+      if (message.createdTimestamp < deleteBefore) {
+        await message.delete();
+        deletedCount++;
+      }
+    });
+
+    // Log how many messages were deleted
+    if (deletedCount > 0) {
+      await channel.send(`${deletedCount} messages were deleted.`);
+    } else {
+      channel.send(`No older messages to delete.`);
+    }
+  } catch (err) {
+    console.error(`Error deleting messages in channel ${channelId}:`, err);
+  }
+}
+
+// Function to handle intervals for each channel
+async function setupIntervals() {
+  const settings = await fetchChannelSettings();
+
+  settings.forEach((setting) => {
+    const { guild_id, channel_id, interval, delete_age } = setting;
+
+    // Convert interval from minutes to milliseconds
+    const intervalMs = interval * 60 * 1000;
+
+    // Set up setInterval for each channel
+    setInterval(async () => {
+      await deleteOldMessages(channel_id, delete_age);
+    }, intervalMs);
+
+    console.log(
+      `Set up interval for Guild ${guild_id}, Channel ${channel_id} to check every ${interval} minutes and delete messages older than ${delete_age} minutes.`
+    );
+  });
+}
+
+// Once the bot is ready, set up the intervals
+bot.once("ready", async () => {
+  console.log(`Logged in as ${bot.user.tag}!`);
+  await setupIntervals(); // Fetch settings and start intervals
 });
+
 
 // Start the bot
 bot.login(process.env.DISCORD_TOKEN);
