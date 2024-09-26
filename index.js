@@ -554,13 +554,31 @@ const hasBotCmdRole = (member) => {
 bot.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
-  const { commandName, member, guildId, channelId } = interaction;
+  const { commandName, member } = interaction;
+  const guildId = interaction.guild.id;
+  const channelId = interaction.channel.id;
 
+  // Check if user has the required role
   if (!hasBotCmdRole(member)) {
     await interaction.reply({ content: "You don't have permission to use this command.", ephemeral: true });
     return;
   }
 
+  // Fetch current settings from the database (for interval and delete age)
+  const fetchCurrentSettings = async () => {
+    const result = await pgClient.query(
+      `SELECT interval, delete_age FROM gravbits_channels WHERE guild_id = $1 AND channel_id = $2`,
+      [guildId, channelId]
+    );
+    return result.rows[0] || { interval: 1, delete_age: 1 }; // Default to 1 if no row is found
+  };
+
+  // Fetch current settings once to avoid querying multiple times
+  const currentSettings = await fetchCurrentSettings();
+  let newInterval = currentSettings.interval;  // Default to current interval or 1
+  let newDeleteAge = currentSettings.delete_age; // Default to current delete_age or 1
+
+  // Handle commands
   switch (commandName) {
     case "add-gravbits":
       await addOrUpdateChannel(guildId, channelId);
@@ -568,13 +586,13 @@ bot.on("interactionCreate", async (interaction) => {
       break;
 
     case "check-gravbits":
-      const newInterval = interaction.options.getInteger("interval") || 1;
-      await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDelteAGe);
+      newInterval = interaction.options.getInteger("interval") || currentSettings.interval || 1;
+      await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDeleteAge);
       await interaction.reply(`Scan interval updated to ${newInterval} minutes.`);
       break;
 
     case "deltime-gravbits":
-      const newDeleteAge = interaction.options.getInteger("delete_age") || 1;
+      newDeleteAge = interaction.options.getInteger("delete_age") || currentSettings.delete_age || 1;
       await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDeleteAge);
       await interaction.reply(`Delete age updated to ${newDeleteAge} minutes.`);
       break;
@@ -595,6 +613,7 @@ bot.on("interactionCreate", async (interaction) => {
   }
 });
 
+
 // Function to add or update a channel for scanning
 async function addOrUpdateChannel(guildId, channelId) {
   try {
@@ -613,27 +632,38 @@ async function addOrUpdateChannel(guildId, channelId) {
 // Function to handle interval updates dynamically and restart the interval
 async function updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDeleteAge) {
   try {
-    // Update database
-    await pgClient.query(`
-      UPDATE gravbits_channels
-      SET interval = $3, delete_age = $4
-      WHERE guild_id = $1 AND channel_id = $2
-    `, [guildId, channelId, newInterval, newDeleteAge]);
+    // Fetch the current settings from the database
+    const currentSettings = await pgClient.query(
+      `SELECT interval, delete_age FROM gravbits_channels WHERE guild_id = $1 AND channel_id = $2`,
+      [guildId, channelId]
+    );
 
-    // Restart the interval for this channel
+    // Default to 1 if no interval or delete age is provided by the user or in the database
+    const intervalToUse = newInterval ?? currentSettings.rows[0]?.interval ?? 1;  // Use newInterval or current interval or default to 1
+    const deleteAgeToUse = newDeleteAge ?? currentSettings.rows[0]?.delete_age ?? 1; // Use newDeleteAge or current delete age or default to 1
+
+    // Update the database with the new values
+    await pgClient.query(
+      `UPDATE gravbits_channels SET interval = $3, delete_age = $4 WHERE guild_id = $1 AND channel_id = $2`,
+      [guildId, channelId, intervalToUse, deleteAgeToUse]
+    );
+
+    // Clear any existing interval to avoid overlapping
     if (existingIntervals[channelId]) {
       clearInterval(existingIntervals[channelId]);
     }
 
+    // Set up the new interval
     existingIntervals[channelId] = setInterval(async () => {
-      await deleteOldMessages(channelId, newDeleteAge);
-    }, newInterval * 60 * 1000);
+      await deleteOldMessages(channelId, deleteAgeToUse);
+    }, intervalToUse * 60 * 1000); // Convert minutes to milliseconds
 
-    console.log(`Interval updated for ${channelId}: every ${newInterval} minutes, delete age ${newDeleteAge} minutes.`);
+    console.log(`Interval updated for ${channelId}: every ${intervalToUse} minutes, delete age ${deleteAgeToUse} minutes.`);
   } catch (error) {
     console.error("Error updating settings and restarting interval:", error);
   }
 }
+
 //handle scan
 async function handleScan(interaction, guildId) {
   try {
