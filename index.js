@@ -812,5 +812,11 @@ async function handleRemoveGravbits(guildId, channelId) {
   }
 }
 
+// Register commands when the bot is ready
+bot.once("ready", async () => {
+  console.log(`Logged in as ${bot.user.tag}`);
+  await setupIntervals(); // Fetch settings and start intervals
+});
+
 // Start the bot
 bot.login(process.env.DISCORD_TOKEN);
