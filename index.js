@@ -634,6 +634,87 @@ async function updateChannelSettingsAndRestartInterval(guildId, channelId, newIn
     console.error("Error updating settings and restarting interval:", error);
   }
 }
+//handle scan
+async function handleScan(interaction, guildId) {
+  try {
+    const result = await pgClient.query(`
+      SELECT channel_id, interval, delete_age FROM gravbits_channels
+      WHERE guild_id = $1
+    `, [guildId]);
+
+    const channelList = await Promise.all(result.rows.map(async (row) => {
+      const channel = bot.channels.cache.get(row.channel_id);
+      return channel ? `${channel.name}: Interval - ${row.interval} min, Delete Age - ${row.delete_age} min` : `Channel ID ${row.channel_id} not found.`;
+    }));
+
+    const responseMessage = channelList.length > 0 ? channelList.join("\n") : "No channels monitored in this guild.";
+    console.log(`Channels monitored in guild ${guildId}:`, channelList);
+
+    // Send response back to the user
+    await interaction.reply(responseMessage);
+  } catch (error) {
+    console.error('Error fetching channels:', error);
+  }
+}
+
+//function delete message 
+async function handleDeleteGravbits(interaction, guildId, channelId, messageCount) {
+  const channel = bot.channels.cache.get(channelId);
+  if (!channel) {
+    console.log(`Channel with ID ${channelId} not found!`);
+    await interaction.reply("Channel not found!");
+    return;
+  }
+
+  try {
+    // Fetch messages (default to 100 if messageCount is not provided)
+    const fetchedMessages = await channel.messages.fetch({ limit: messageCount || 100 });
+
+    if (fetchedMessages.size === 0) {
+      console.log("No messages found to delete.");
+      await interaction.reply("No messages found to delete.");
+      return;
+    }
+
+    // Now delete all messages, including bot's own messages
+    await channel.bulkDelete(fetchedMessages, true);
+    console.log(`Deleted ${fetchedMessages.size} messages in ${channel.name}`);
+
+    // Optional: Send a message to the channel after deletion
+    await interaction.reply(`Deleted ${fetchedMessages.size} messages.`);
+  } catch (error) {
+    console.error(`Error deleting messages in ${channelId}:`, error);
+    await interaction.reply("There was an error trying to delete messages.");
+  }
+}
+
+// Function to handle /deltime-gravbits command
+async function handleCheckGravbits(guildId, channelId, newInterval) {
+  try {
+    await pgClient.query(`
+      UPDATE gravbits_channels
+      SET interval = $3
+      WHERE guild_id = $1 AND channel_id = $2
+    `, [guildId, channelId, newInterval]);
+    console.log(`Updated scan interval for channel ${channelId} in guild ${guildId} to ${newInterval} minutes.`);
+  } catch (error) {
+    console.error('Error updating interval:', error);
+  }
+}
+
+//ahndle delete age older
+async function handleDeleteAge(guildId, channelId, newDeleteAge) {
+  try {
+    await pgClient.query(`
+      UPDATE gravbits_channels
+      SET delete_age = $3
+      WHERE guild_id = $1 AND channel_id = $2
+    `, [guildId, channelId, newDeleteAge]);
+    console.log(`Updated delete age for channel ${channelId} in guild ${guildId} to ${newDeleteAge} minutes.`);
+  } catch (error) {
+    console.error('Error updating delete age:', error);
+  }
+}
 
 // Function to delete old messages
 async function deleteOldMessages(channelId, deleteAgeMinutes) {
