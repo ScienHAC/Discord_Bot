@@ -569,13 +569,13 @@ bot.on("interactionCreate", async (interaction) => {
 
     case "check-gravbits":
       const newInterval = interaction.options.getInteger("interval") || 1;
-      await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, /* Keep current delete age */);
+      await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDelteAGe);
       await interaction.reply(`Scan interval updated to ${newInterval} minutes.`);
       break;
 
     case "deltime-gravbits":
       const newDeleteAge = interaction.options.getInteger("delete_age") || 1;
-      await updateChannelSettingsAndRestartInterval(guildId, channelId, /* Keep current interval */, newDeleteAge);
+      await updateChannelSettingsAndRestartInterval(guildId, channelId, newInterval, newDeleteAge);
       await interaction.reply(`Delete age updated to ${newDeleteAge} minutes.`);
       break;
 
