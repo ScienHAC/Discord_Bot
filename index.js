@@ -351,6 +351,9 @@ async function deleteOldMessages(channelId, deleteAgehours) {
     }
 }
 
+//array to keep track of all interval ids
+let intervalIds = [];
+
 // Function to handle intervals for each channel
 async function setupIntervals() {
     const settings = await fetchChannelSettings();
@@ -362,9 +365,15 @@ async function setupIntervals() {
         const intervalMs = interval * 60 * 60 * 1000;
 
         // Set up setInterval for each channel
-        setInterval(async () => {
+        const intervalId = setInterval(async () => {
             await deleteOldMessages(channel_id, delete_age);
         }, intervalMs);
+        intervalIds.push(intervalId);
+        for (let i = 0; i < intervalIds.length - 1; i++) {
+            clearInterval(intervalIds[i]);
+        }
+        console.log("All intervals cleared");
+        intervalIds = [intervalIds.at(-1)];
 
         console.log(
             `Set up interval for Guild ${guild_id}, Channel ${channel_id} to check every ${interval} hours and delete messages older than ${delete_age} hours.`
