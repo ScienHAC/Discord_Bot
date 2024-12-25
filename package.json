@@ -1,12 +1,20 @@
 {
-  "name": "discord-bot",
+  "name": "discord_bot",
   "version": "1.0.0",
-  "description": "A Discord bot",
+  "description": "Welcome to the **GravBits** Discord bot repository! **GravBits** is designed to automate the process of monitoring and deleting old messages in specified channels. It supports PostgreSQL for data persistence and is equipped with several useful commands to manage message deletion intervals and aging.",
   "main": "index.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
+    "express": "^4.21.2",
     "discord.js": "^14.0.0",
     "dotenv": "^16.0.0",
     "sqlite3": "^5.0.0",
