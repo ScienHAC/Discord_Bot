@@ -410,6 +410,9 @@ const pgClient = new PgClient({
     user: process.env.PGUSER,
     password: process.env.PGPASSWORD,
     port: process.env.PGPORT,
+    ssl: {
+        rejectUnauthorized: false,
+    },
 });
 
 // Connect to PostgreSQL and ensure table exists
